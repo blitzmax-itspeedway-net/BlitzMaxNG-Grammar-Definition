@@ -1,0 +1,1 @@
+# BlitzMaxNG-Grammar-Definition
