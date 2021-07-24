@@ -16,22 +16,33 @@ LWSP = *( WSP / CR / LF )
 
 ALPHA = %x41-5A / %x61-7A
 DIGIT = %x30-39
+DQUOTE = %x22
 HEXDIGIT = DIGIT / "A" / "B" / "C" / "D" / "E" / "F"
 VCHAR = %x21-7E
 
+boolean = "true" / "false"
+double = *DIGIT "." *DIGIT
+float = *DIGIT "." *DIGIT
+integer = *DIGIT
+string = DQUOTE *( ALPHA / DIGIT / SP ) DQUOTE
+
 ; PROGRAMS, MODULES AND BLOCKS
 
-program = [strictmode] [framework] \*import
+program = [strictmode] [framework] *import [*include] block
+module = [strictmode] module *import [*include] block
 
 strictmode = "superstrict" / "strict" [ comment ] EOL
 framework = "framework" EOL
 import = "import" string "." string EOL
 include = "include" string EOL
 
-function = "function" string [ ":" vartype ]
+module = "module" string "." string
+moduleinfo = *( "moduleinfo" string )
+
+function = "function" string [ ":" vartype ["ptr"] ]
            "(" params ")" block
            "endfunction" / ("end" "function)
-method = "method" string [ ":" vartype ]
+method = "method" string [ ":" vartype ["ptr"] ]
          "(" params ")" 
          block
          "endmethod" / ("end" "method")
@@ -40,15 +51,15 @@ type = "type" string [ "extends" string ]
        \*(field / const / global / "private" / "public" / method / function )
        "endtype" / ("end" "type")
 
-vartype = "int" / "string" / "double" / "float"
+vartype = "byte" / "int" / "string" / "double" / "float" / "size_t"
 
-comment = "'" \*( WSP / string ) EOL
-remark = "rem" \*( WSP / string / EOL ) "endrem" / ( "end" "rem")
+comment = "'" *( WSP / string ) EOL
+remark = "rem" *( WSP / string / EOL ) "endrem" / ( "end" "rem")
 
 
-local = "local" vardecl \*[ "," vardecl ]
-field = "field" vardecl \*[ "," vardecl ]
-global = "global" vardecl \*[ "," vardecl ]
+local = "local" vardecl *[ "," vardecl ]
+field = "field" vardecl *[ "," vardecl ]
+global = "global" vardecl *[ "," vardecl ]
 
 vardecl = string ":" vartype [ "=" expression ]
 
