@@ -1,0 +1,62 @@
+; Status: 23/JUL/2021, Incomplete
+; Please refer to ABNF definitions in RFC 5234
+
+; CONTROL CODES
+HTAB = %x09
+LF = %x0A
+CR = %x0D
+EOL = (CR LF) / CR
+
+; WHITESPACE
+SP = %x20
+WSP = HTAB / SP
+LWSP = *( WSP / CR / LF )
+
+; SYMBOLS
+
+ALPHA = %x41-5A / %x61-7A
+DIGIT = %x30-39
+HEXDIGIT = DIGIT / "A" / "B" / "C" / "D" / "E" / "F"
+VCHAR = %x21-7E
+
+; PROGRAMS, MODULES AND BLOCKS
+
+program = [strictmode] [framework] \*import
+
+strictmode = "superstrict" / "strict" [ comment ] EOL
+framework = "framework" EOL
+import = "import" string "." string EOL
+include = "include" string EOL
+
+function = "function" string [ ":" vartype ]
+           "(" params ")" block
+           "endfunction" / ("end" "function)
+method = "method" string [ ":" vartype ]
+         "(" params ")" 
+         block
+         "endmethod" / ("end" "method")
+
+type = "type" string [ "extends" string ]
+       \*(field / const / global / "private" / "public" / method / function )
+       "endtype" / ("end" "type")
+
+vartype = "int" / "string" / "double" / "float"
+
+comment = "'" \*( WSP / string ) EOL
+remark = "rem" \*( WSP / string / EOL ) "endrem" / ( "end" "rem")
+
+
+local = "local" vardecl \*[ "," vardecl ]
+field = "field" vardecl \*[ "," vardecl ]
+global = "global" vardecl \*[ "," vardecl ]
+
+vardecl = string ":" vartype [ "=" expression ]
+
+; Define Tokens identified by Lexer
+; Status: Incomplete
+
+TOKENS = [ RESERVED ]
+RESERVED = ["superstrict"/"strict"/"framework"/"import"/"include"]
+lbrace = "("
+rbrace = ")"
+comma = ","

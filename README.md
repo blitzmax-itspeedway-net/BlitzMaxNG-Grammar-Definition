@@ -1,45 +1,18 @@
 # BlitzMaxNG Grammar Definition
-```
-; Status: 23/JUL/2021, Incomplete
-; Please refer to ABNF definitions in RFC 5234
 
-; Define Tokens identified by Lexer
-; Status: Incomplete
-%1:SUPERSTRICT,%2:STRICT,%3:FRAMEWORK,%4:INCLUDE...
+- *STATUS*: Incomplete
 
-; PROGRAMS, MODULES AND BLOCKS
+This repo contains the "Augmented Backus–Naur Form" definition for the language [BlitzMax-NG](https://blitzmax.org/).
 
-program = [strictmode] [framework] \*import
+The mechanisms specified in the file are described in IETF standard [RFC5234](https://www.rfc-editor.org/rfc/rfc5234.txt) and [RFC7405](https://www.rfc-editor.org/rfc/rfc7405.txt)]
 
-strictmode = "superstrict" / "strict" CRLF
-framework = "framework" CRLF
-import = "import" string "." string CRLF
-include = "include" string CRLF
+##Implementation
+- EOL has been used to mark "End Of Line" instead of the ABNF standard CRLF for Linux/Windows compatibility
+- ABNF standard for LWSP has been replaced to account for CRLF compatibility 
 
-function = "function" string [ ":" vartype ]
-           "(" params ")" block
-           "endfunction" / ("end" "function)
-method = "method" string [ ":" vartype ]
-         "(" params ")" 
-         block
-         "endmethod" / ("end" "method")
-
-type = "type" string [ "extends" string ]
-       \*(field / const / global / "private" / "public" / method / function )
-       "endtype" / ("end" "type")
-
-vartype = "int" / "string" / "double" / "float"
-
-comment = "'" \*( WSP / string ) CRLF
-remark = "rem" \*( WSP / string / CRLF ) "endrem" / ( "end" "rem")
-CRLF = %d13.10
-
-local = "local" vardecl \*[ "," vardecl ]
-field = "field" vardecl \*[ "," vardecl ]
-global = "global" vardecl \*[ "," vardecl ]
-
-vardecl = string ":" vartype [ "=" expression ]
-
-
-
-```
+##References:
+- [RFC5234 - Augmented BNF for Syntax Specifications: ABNF](https://www.rfc-editor.org/rfc/rfc5234.txt)
+- [RFC7405 - Case-Sensitive String Support in ABNF](https://www.rfc-editor.org/rfc/rfc7405.txt)]
+- [Augmented_Backus-Naur Form at Wikipedia](https://en.wikipedia.org/wiki/Augmented_Backus%E2%80%93Naur_form)
+- [Max Grammar by FireballStarfish](https://pastebin.com/VwdbJHae)
+- [BlitzMax Language Server](https://discord.com/channels/613699895139762176/867627379785465926)
