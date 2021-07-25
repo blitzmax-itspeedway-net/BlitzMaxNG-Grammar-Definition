@@ -1,0 +1,260 @@
+ 
+CodeFile               = Code : @
+Code                   = CodeHeader CodeBlock : @Header @Body
+CodeHeader             = HeaderStatement*
+CodeBlock              = Statement* : @
+SingleLineCodeBlock    = SingleLineStatement* : @
+HeaderStatement        = StrictnessStatement | ModuleStatement | ModuleInfoStatement | FrameworkStatement | ImportStatement | IncludeStatement | ExternBlock | Whitespace
+Statement              = IncludeStatement | ExternBlock | ClassDefinition | AbstractMethodDeclaration | MethodDefinition | FunctionDefinition | ControlStatement | WithBlock | VarDefinition | AssignmentStatement | CallStatement | Whitespace
+SingleLineStatement    = IncludeStatement | ExternBlock | ClassDefinition | AbstractMethodDeclaration | MethodDefinition | FunctionDefinition | ControlStatement | WithBlock | VarDefinition | AssignmentStatement | CallStatement | (Semicolon | SLWhitespace)
+'LambdaBody             = IncludeStatement |                                                                                                     ControlStatement | WithBlock |                 AssignmentStatement | CallStatement | Expression
+ 
+StrictnessStatement    = %strict | %superstrict
+ModuleStatement        = %module ! _ ModuleIdentifier
+ModuleInfoStatement    = %moduleinfo ! _ StringLiteral
+FrameworkStatement     = %framework ! _ ModuleIdentifier : @ @ @Import
+ImportStatement        = %import ! _ (ModuleIdentifier | StringLiteral) : @ @ @Import
+IncludeStatement       = %include ! _ StringLiteral : @ @ @Include
+ModuleIdentifier       = %name %dot %name : @ModScope @ @ModName
+ 
+ExternBlock            = ExternHeader ExternBody ExternTerminator : @Header @Body @Terminator
+ExternHeader           = %extern ! _ StringLiteral?
+ExternBody             = ExternStatement*
+ExternTerminator       = %endextern
+ExternStatement        = VarDefinition | (FunctionHeader (_ %equals _ StringLiteral)?) | Whitespace
+ 
+ClassDefinition        = ClassHeader ClassBody ClassTerminator : @Header @Body @Terminator
+ClassHeader            = %type ! _ TypeParameterDeclaration? _ Identifier _ ClassInheritance? _ (%abstract | %final)? _ MetaData? : @ @ @TypeParameters @ @Name @ @Inheritance @ @Modifier @ @
+ClassInheritance       = %extends ! _ TypeIdentifier : @ @ @SuperType
+ClassBody              = CodeBlock
+ClassTerminator        = %endtype
+ 
+FunctionDefinition     = FunctionHeader FunctionBody FunctionTerminator : @Header @Body @Terminator
+FunctionHeader         = %function ! _ TypeParameterDeclaration? _ Identifier _ TypeSignature _ MetaData? : @ @ @TypeParameters @ @Name @ @Type @ @
+FunctionBody           = CodeBlock
+FunctionTerminator     = %endfunction
+ 
+TypeParameterDeclaration  = %lt ! _ TypeParameterList _ %!gt : @ @ @List @ @
+TypeParameterList         = TypeParameterListElement (_ %comma _ TypeParameterListElement)* : @ @
+TypeParameterListElement  = Identifier TypeConstraintDefinition? : @Name @ConstraintDefinition
+TypeConstraintDefinition  = _ %accepts _ (TypeConstraint | TypeConstraintParenList) : @ @ @ @Constraints
+TypeConstraintParenList   = %lparen ! _ TypeConstraintList _ %!rparen : @ @ @List @ @
+TypeConstraintList        = TypeConstraintListElement (_ %comma _ TypeConstraintListElement)* : @ @
+TypeConstraintListElement = TypeConstraint : @
+ 
+TypeConstraint            = (ExtendsTypeConstraint | NumberTypeConstraint | NonObjectTypeConstraint)
+ExtendsTypeConstraint     = (TypeIdentifier | %string | %object) : @SuperType
+NumberTypeConstraint      = %numbertype : @
+NonObjectTypeConstraint   = %not  _%object : @ @ @
+FunctionTypeConstraint    = %function : @
+'ArrayTypeConstraint       = %lbracket _ %rbracket : @ @ @
+'PtrTypeConstraint         = %ptr : @
+ 
+TypeArgs               = (EmptyTypeArgs | NonEmptyTypeArgs) : @
+EmptyTypeArgs          = ((%lt _ %gt) | %neq)       : @             ' this will be folded up
+NonEmptyTypeArgs       = %lt ! _ TypeArgList _ %!gt : @ @ @List @ @ ' this will be folded up
+TypeArgList            = TypeArgListElement (_ %comma _ TypeArgListElement)* : @ @
+TypeArgListElement     = ColonlessTypeSignature : @Type
+ 
+MethodDefinition       = MethodHeader MethodBody MethodTerminator : @Header @Body @Terminator
+AbstractMethodDeclaration = AbstractMethodHeader : @Header
+MethodHeader           = %method _ TypeParameterDeclaration? _ (Identifier | %new | %delete) _ TypeSignature _ %final? _ MetaData? : @ @ @TypeParameters @ @Name @ @Type @ @ @ @
+AbstractMethodHeader   = %method _ TypeParameterDeclaration? _ Identifier _ TypeSignature _ %abstract _ MetaData? : @ @ @TypeParameters @ @Name @ @Type @ @ @ @
+MethodBody             = CodeBlock
+MethodTerminator       = %endmethod
+ 
+LambdaExpression       = LambdaHeader LambdaBody : @Header @Body
+LambdaHeader           = %lambda _ TypeParameterDeclaration? _ LambdaTypeSignature _ %!rarrow _ : @ @ @TypeParameters @ @Type @ @ @
+LambdaTypeSignature    = LambdaTypeModifier : @
+LambdaTypeModifier     = CallableTypeModifier : @
+LambdaBody             = LambdaBodyStatement | LambdaBodyExpression
+LambdaBodyStatement    = %doublesigil _ ! Statement : @ @ @Statement
+LambdaBodyExpression   = Expression
+'LambdaBody is at the top with Statement
+'LambdaBody             = (Expression) : @
+LambdaSelfCall         = %lambda _ %self ! (_ (ParenList | BracketList))+ : @ @ @ @ @ArgList
+ 
+ControlStatement       = ForLoop | ForEachLoop | WhileLoop | RepeatLoop | IfStatement | LoopCancelStatement | ReturnStatement | EndStatement
+ 
+ForLoop                = ForLoopHeader ForLoopBody ForLoopTerminator : @Header @Body @Terminator
+ForLoopHeader          = %for _ (ForLoopHeader_Inf | ForLoopHeader_Reg) : @ @ @_ ' the _ will be dissolved
+ForLoopHeader_Inf      = ForCounterDefinitionInf _ ForInferenceAssignment : @Counter @ @Assignment
+ForLoopHeader_Reg      = (ForCounterDefinitionReg | LValue) _ ForAssignment : @Counter @ @Assignment
+ForAssignment          = %equals      _ Expression ! _ (%to | %until) _ Expression _ ForStep? : @ @ @StartValue @ @Comparator @ @EndValue @ @Step
+ForInferenceAssignment = %colonequals _ Expression ! _ (%to | %until) _ Expression _ ForStep? : @ @ @StartValue @ @Comparator @ @EndValue @ @Step
+ForLoopBody            = CodeBlock
+ForLoopTerminator      = %!next
+ 
+ForEachLoop            = ForEachLoopHeader ForEachLoopBody ForEachLoopTerminator : @Header @Body @Terminator
+ForEachLoopHeader      = %for _ ForEachLoopHeader_Reg : @ @ @_ ' the _ will be dissolved
+'ForEachLoopHeader_Inf  = ForCounterDefinitionInf _ ForEachInferenceAssignment : @Counter @ @Assignment
+ForEachLoopHeader_Reg  = (ForCounterDefinitionReg | LValue) _ ForEachAssignment : @Counter @ @Assignment
+ForEachAssignment          =      %equals _ %eachin ! _ Expression  : @ @ @ @ @Collection
+'ForEachInferenceAssignment = %colonequals _ %eachin ! _ Expression : @ @ @ @ @Collection
+ForEachLoopBody        = CodeBlock
+ForEachLoopTerminator  = %!next
+' TODO: difficult to infer the EachIn type, since it could be classes
+ 
+'ForCounter             = (ForCounterDefinition | LValue) : @
+ForCounterDefinitionInf= %local _ Identifier : @ @ @Name
+ForCounterDefinitionReg= %local _ Identifier _ TypeSignature : @ @ @Name @ @Type
+ForStep                = %step _ ! Expression : @ @ @StepValue ' will be dissolved
+ 
+WhileLoop              = WhileLoopHeader WhileLoopBody WhileLoopTerminator : @Header @Body @Terminator
+WhileLoopHeader        = %while ! _ Expression
+WhileLoopBody          = CodeBlock
+WhileLoopTerminator    = %!wend
+ 
+RepeatLoop             = RepeatLoopInitiator RepeatLoopBody RepeatLoopFooter : @Initiator @Body @Footer
+RepeatLoopInitiator    = %repeat !
+RepeatLoopBody         = CodeBlock
+RepeatLoopFooter       = (%until ! _ Expression) | %forever
+ 
+IfStatement            = IfBlock | IfLine
+ 
+IfBlock                = IfBlockIfThen IfBlockElseIfThen* IfBlockElse? IfBlockTerminator : @IfThen @ElseIfThens @Else @Terminator
+IfBlockIfThen          = %if _ Expression _ %then? (_ LineBreak)* CodeBlock : @ @ @Condition @ @ @LineBreakWhitespace @Body
+IfBlockElseIfThen      = %elseif _ Expression _ %then? CodeBlock : @ @ @Condition @ @ @Body
+IfBlockElse            = %else CodeBlock : @ @Body
+IfBlockTerminator      = %endif
+ 
+IfLine                 = IfLineIfThen IfLineElseIfThen* IfLineElse? : @IfThen @ElseIfThens @Else
+IfLineIfThen           = %if _ Expression _ %then? SingleLineCodeBlock : @ @ @Condition @ @ @Body
+IfLineElseIfThen       = %elseif _ Expression _ %then? SingleLineCodeBlock : @ @ @Condition @ @ @Body
+IfLineElse             = %else SingleLineCodeBlock : @ @Body
+ 
+LoopCancelStatement    = (%exit | %continue) _ Identifier? : @ @ @Label
+ReturnStatement        = %return _ Expression
+EndStatement           = %end
+ 
+WithBlock              = WithBlockHeader WithBlockBody WithBlockTerminator : @Header @Body @Terminator
+WithBlockHeader        = %with ! _ Expression : @ @ @Object
+WithBlockBody          = CodeBlock
+WithBlockTerminator    = %!endwith
+ 
+VarDefinition          = (%global | %local | %field | %const) _ VarDefList : @Keyword @ @DefList
+VarDefList             = VarDefListElement (_ %comma _ VarDefListElement)* : @ @
+VarDefListElement      = Identifier _ (VarDefListElement_Inf | VarDefListElement_Reg) : @Name @ @_ ' the _ will be dissolved
+VarDefListElement_Inf  = InferenceAssignment : @Assignment
+VarDefListElement_Reg  = VarDefListTypeSignature _ Assignment? : @Type @ @Assignment
+VarDefListTypeSignature = TypeSignature _ ArrayAllocationTypeModifier? : @ @ @ArrayAllocation ' the BracketExpression is for element allocation, i.e. ":Int[5]"
+ArrayAllocationTypeModifier = BracketExpression : @
+ 
+ArgDeclList           = ArgDeclListElement (_ %comma _ ArgDeclListElement)* : @ @
+ArgDeclListElement    = Identifier _ TypeSignature _ Assignment? : @Name @ @Type @ @Assignment
+ 
+AssignmentStatement    = LValue _ Assignment : @LValue @ @Assignment
+Assignment             = %equals _ Expression : @ @ @RValue
+InferenceAssignment    = %colonequals _ Expression : @ @ @RValue
+ 
+ExpressionList         = ExpressionListElement (_ %comma _ ExpressionListElement)* : @ @
+ExpressionListElement  = Expression? : @
+ 
+Expression             = FunctionalIf | CondExpression
+CondExpression         = CondExpressionElement (_ CondOperator ! _ CondExpressionElement)* : @ @
+CompExpression         = CompExpressionElement (_ CompOperator ! _ CompExpressionElement)* : @ @
+BitExpression          = BitExpressionElement (_ BitOperator ! _ BitExpressionElement)* : @ @
+AddExpression          = AddExpressionElement (_ AddOperator ! _ AddExpressionElement)* : @ @
+MulExpression          = MulExpressionElement (_ MulOperator ! _ MulExpressionElement)* : @ @
+PowExpression          = PowExpressionElement (_ PowOperator ! _ PowExpressionElement)* : @ @
+UnaryExpression        = (UnaryOperator _)* UnaryExpressionElement : @ @
+DerefExpression        = (MemberAccessOperator | DerefExpressionElement) (_ DerefOperator)* : @ @
+DerefExpression1       = (MemberAccessOperator | DerefExpressionElement) (_ DerefOperator)+ : @ @
+BaseExpression         = ParenExpression | Literal | NewObject | %self | %super | %null | MinMaxExpression | LambdaExpression | LambdaSelfCall | IdentifierExpression
+IdentifierExpression   = _ Identifier : @ @Identifier
+MinMaxExpression       = (%min | %max) ! _ %!lparen _ Expression _ %comma _ Expression _ %!rparen : @ @ @ @ @ArgL @ @ @ @ArgR @ @
+ 
+CondExpressionElement  = CompExpression : @
+CompExpressionElement  = BitExpression : @
+BitExpressionElement   = AddExpression : @
+AddExpressionElement   = MulExpression : @
+MulExpressionElement   = PowExpression : @
+PowExpressionElement   = UnaryExpression : @
+UnaryExpressionElement = DerefExpression : @
+DerefExpressionElement = BaseExpression : @
+ 
+CondOperator           = (%and | %or) : @
+CompOperator           = (%equals | %neq | %lt | %gt | %leq | %geq) : @
+BitOperator            = (%bitand | %bitor | %bitnot) : @
+AddOperator            = (%plus | %minus) : @
+MulOperator            = (%mul | %div | %mod | %shl | %shr | %sar) : @
+PowOperator            = (%pow) : @
+UnaryOperator          = (%minus | %plus | %bitnot | %not | %abs | %sgn | %sizeof | %varptr | KeywordTypeCast) : @ ' casts to non-keyword types require parentheses and are parsed as function calls (DerefExpression)
+DerefOperator          = (MemberAccessOperator | ArrayAccessOperator | CallOperator) : @
+MemberAccessOperator   = TypeArgs? _ %dot _ Identifier : @TypeArgs @ @ @ @Member
+ArrayAccessOperator    = (BracketList | Slice) : @
+CallOperator           = TypeArgs? _ ParenList : @TypeArgs @ @ArgList
+ 
+' despite being a statement, this can double as an expression when CallStatementCall has a ParenList or empty ArgList
+CallStatement                = CallStatementDerefExpression _ CallStatementCall : @Callee @ @Call
+CallStatementDerefExpression = (MemberAccessOperator | DerefExpressionElement) (_ CallStatementDerefOperators)*
+CallStatementDerefOperators  = CallOperator? (_ (MemberAccessOperator | ArrayAccessOperator))+
+CallStatementCall            = (ParenList | ExpressionList?) : @ArgList
+ 
+' a call without parents cannot be done from an expression that ends with parens, but it can be done from any other
+' deref expression
+' "f() 5" is illegal, even if f returns a "(_:Int)", "f()[0] 5" and such however is allowed
+' this also applies when the call without parens has no parameters: if f is of type "()()" and returns a function
+' g of type "()", then "f()" will only execute f, not g; but if f is of type "()[]()", then f()[0] will execute both
+' (whereas "f[0]" will not compile at all because a function cannot be indexed)
+' a deref expression that does not end in parens is always considered a call without parens, but tested against type,
+' so "f[0]" will compile if f is a "()[]" but not when it is a ":String[]"
+ 
+FunctionalIf           = %iff ! _ Expression _ %then? _ Expression _ %!else _ Expression : @ @ @Condition @ @ @ @ThenExpression @ @ @ @ElseExpression
+ 
+'LValue                 = %dot? _ Identifier (_ (LArrayAccess | LMemberAccess | LCall))* : @LeadingDot @ @ @
+'LValue                 = (MemberAccessOperator | Identifier) (_ (LArrayAccess | LMemberAccess | LCall))* : @ @
+LValue                 = DerefExpression : @
+'LArrayAccess           = BracketList
+'LMemberAccess          = %dot _ Identifier
+'LCall                  = ParenList
+ 
+NewObject              = %new _ TypeIdentifier : @ @ @Type
+Literal                = AtomicLiteral | ArrayLiteral
+AtomicLiteral          = NumberLiteral | StringLiteral | (%true | %false) | %pi
+NumberLiteral          = (%intlit | %hexlit | %binlit | %floatlit) _ AtomicTypeSignature? : @ @ @TypeSpecifier
+StringLiteral          = %strlit
+KeywordTypeCast        = TypeKeyword : @Type
+ 
+TypeSignature           = AtomicTypeSignature? (_ TypeModifier)* : @AtomicType @	' modifiers don't get a name, will be flattened
+AtomicTypeSignature     = (TypeSigil | AtomicColonTypeSignature) : @
+AtomicColonTypeSignature= %colon ! _ TypeVarianceModifier? _ (TypeKeyword | TypeIdentifier) : @ @ @Variance @ @Type
+TypeSigil               = (%bytesigil | %shortsigil | %intsigil | %longsigil | %floatsigil | %doublesigil | %stringsigil) : @Sigil
+TypeKeyword             = (%byte | %short | %int | %long | %float | %double | %string | %object) : @Keyword
+TypeModifier            = (PtrTypeModifier | VarTypeModifier | ArrayTypeModifier | CallableTypeModifier) : @
+PtrTypeModifier         = %ptr : @
+VarTypeModifier         = %var : @
+ArrayTypeModifier       = %lbracket _ (%comma _)* %rbracket : @ @ @CommaList @ ' no ! to allow for backtracking into VarDefListTypeSignature
+CallableTypeModifier    = %lparen _ ArgDeclList? _ %!rparen : @ @ @Params @ @
+ 
+ColonlessTypeSignature            = ColonlessAtomicTypeSignature? (_ TypeModifier)* : @AtomicType @	' modifiers don't get a name, will be flattened
+ColonlessAtomicTypeSignature      = (TypeSigil | ColonlessAtomicColonTypeSignature) : @
+ColonlessAtomicColonTypeSignature = TypeVarianceModifier? _ (TypeKeyword | TypeIdentifier) : @Variance @ @Type	' sorry for that name
+ 
+TypeVarianceModifier   = %super | %extends
+ 
+Comment                = SLComment | MLComment
+SLComment              = %comment
+MLComment              = %remcomment
+Whitespace             = SLWhitespace | MLWhitespace
+SLWhitespace           = (%whitespace? %dotdot %whitespace? SLComment? LineBreak %whitespace?) | (%whitespace SLComment?) | SLComment
+_                      = SLWhitespace?
+MLWhitespace           = (SLWhitespace | MLComment | LineBreak | Semicolon)*
+LineBreak              = %linebreak
+Semicolon              = %semicolon
+ArrayLiteral           = BracketList : @
+AnyKeyword             = %strict | %superstrict | %true | %false | %pi | %null | %byte | %short | %int | %long | %float | %double | %string | %object | %var | %ptr | %if | %then | %else | %elseif | %endif | %for | %to | %step | %next | %eachin | %while | %wend | %wend | %repeat | %until | %forever | %select | %endselect | %case | %default | %exit | %continue | %const | %local | %global | %field | %function | %endfunction | %return | %type | %endtype | %extends | %method | %endmethod | %abstract | %final | %new | %self | %super | %delete | %release | %public | %private | %extern | %endextern | %module | %moduleinfo | %incbin | %incbinptr | %incbinlen | %framework | %import | %assert | %goto | %try | %endtry | %catch | %throw | %defdata | %readdata | %restoredata | %and | %or | %not | %shl | %shr | %sar | %len | %abs | %mod | %sgn | %min | %max | %varptr | %sizeof | %asc | %chr | %end | %alias
+Keyword                = %strict | %superstrict | %true | %false | %pi | %null | %byte | %short | %int | %long | %float | %double | %string | %object | %var | %ptr | %to | %step | %eachin | %select | %endselect | %case | %default | %exit | %continue | %return | %new | %self | %super | %delete | %release | %public | %private | %extern | %endextern | %module | %moduleinfo | %incbin | %incbinptr | %incbinlen | %framework | %import | %assert | %goto | %try | %endtry | %catch | %throw | %defdata | %readdata | %restoredata | %and | %or | %not | %shl | %shr | %sar | %len | %abs | %mod | %sgn | %min | %max | %varptr | %sizeof | %asc | %chr | %end | %alias
+Operator               = %plus | %minus | %mul | %div | %pow | %neq | %leq | %geq | %lt | %gt | %equals | %bitand | %bitnot
+ParenList              = %lparen ! _ ExpressionList _ %!rparen : @ @ @List @ @
+BracketList            = %lbracket _ ExpressionList _ %rbracket : @ @ @List @ @
+Slice                  = %lbracket _ Expression? _ %dotdot _ Expression? _ %rbracket : @ @ @StartIndex @ @ @ @EndIndex @ @
+BraceList              = %lbrace ! _ ExpressionList _ %!rbrace : @ @ @List @ @
+ParenExpression        = %lparen ! _ Expression _ %!rparen : @ @ @Contents @ @
+BracketExpression      = %lbracket ! _ Expression _ %!rbracket
+BraceExpression        = %lbrace ! _ Expression _ %!rbrace
+Symbol                 = %hash | %intsigil | %doublesigil | %stringsigil | %bytesigil | %semicolon | %colon | %comma | %dot | %dotdot | %questionmark
+TypeIdentifier         = TypeIdentifierModuleScope? Identifier TypeArgs? : @Module @Name @TypeArgs
+TypeIdentifierModuleScope = ModuleIdentifier _ %dot _ : @Module @ @ @
+Identifier             = %name : @
+MetaData               = BraceExpression

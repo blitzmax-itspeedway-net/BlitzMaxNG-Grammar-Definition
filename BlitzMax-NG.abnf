@@ -1,24 +1,88 @@
 ; Status: 23/JUL/2021, Incomplete
 ; Please refer to ABNF definitions in RFC 5234
 
-; CONTROL CODES
+;   CONTROL CODES
+
 HTAB = %x09
 LF = %x0A
 CR = %x0D
 EOL = (CR LF) / CR
 
-; WHITESPACE
+;   WHITESPACE
+
 SP = %x20
 WSP = HTAB / SP
 LWSP = *( WSP / CR / LF )
 
-; SYMBOLS
+;   SYMBOLS
 
 ALPHA = %x41-5A / %x61-7A
 DIGIT = %x30-39
+DOT = "."
 DQUOTE = %x22
 HEXDIGIT = DIGIT / "A" / "B" / "C" / "D" / "E" / "F"
 VCHAR = %x21-7E
+
+FILENAME = DIGIT / ALPHA / ("/" / "\" ) / "." / "$" / "_" / "!"
+UNDERSCORE = "_"
+
+;   PROGRAM/MODULE HEADER
+
+Program = [ Application | Module ]
+Application = [Strictmode] [Framework] [*Import] [*Extern] [*Include] ApplicationBody
+Module = [Strictmode] ModuleDef [*Import] [*Extern] [*Include] Block
+
+StrictMode = "superstrict" / "strict" EOL
+
+Framework = "framework" ModuleIdentifier EOL
+
+Import = "import" DQUOTE FILENAME DQUOTE EOL
+Include = "include" DQUOTE FILENAME DQUOTE EOL
+
+ModuleDef = "module" ModuleIdentifier
+ModuleInfo = *( "moduleinfo" string )
+
+Extern = "extern" ["C"] *ExternStatement "endextern" / ( "end" "extern" )
+ExternStatement = VarDecl / FunctionHeader "=" string EOL
+
+ApplicationBody = Local / Global / Function / Struct / Type / BlockBody
+
+;   CONSTRUCTS
+
+Function = FunctionHeader Block "endfunction" / ("end" "function")
+FunctionHeader = "function" string [ ":" VarType ["ptr"] ] "(" Params ")"
+
+Method = MethodHeader Block "endmethod" / ("end" "method")
+MethodHeader = "method" string [ ":" VarType ["ptr"] ] "(" Params ")"
+
+
+Struct = "struct" EOL *(Field VarDecl) "endstruct" / ("end" "struct")
+Type = "type" string [ "extends" string ] EOL
+       *(Field / Const / Global / "private" / "public" / Method / Function )
+       "endtype" / ("end" "type")
+
+VarType = "byte" / "int" / "string" / "double" / "float" / "size_t"
+
+Comment = "'" *( WSP / string ) EOL
+Remark = "rem" *( WSP / VCHAR / EOL ) "endrem" / ( "end" "rem")
+
+For = "for" ["local"] Name ":" VarType "=" ( "eachin" Name ) / ( Number ("to"/"until"/"downto") Number ) EOL Block "next" EOL
+Repeat = "repeat" EOL Block ("until" Condition) / "forever" EOL
+While = "while" Condition EOL Block "wend" EOL
+
+;   VARIABLE DECLARATION
+
+Local = "local" VarDeclarations
+Field = "field" VarDeclarations
+Global = "global" VarDeclarations
+
+VarDeclarations = VarDecl *[ "," VarDecl ]
+
+;   SOURCE CODE BODY
+
+BlockBody = *VCHAR 
+
+;   NOT SURE WHAT TO CALL THESE
 
 boolean = "true" / "false"
 double = *DIGIT "." *DIGIT
@@ -26,45 +90,13 @@ float = *DIGIT "." *DIGIT
 integer = *DIGIT
 string = DQUOTE *( ALPHA / DIGIT / SP ) DQUOTE
 
-; PROGRAMS, MODULES AND BLOCKS
+ModuleIdentifier = Name DOT Name
+Name = ALPHA *(ALPHA / DIGIT / UNDERSCORE )
+Number = double / float / integer
+VarDecl = Name ":" VarType [ "=" Expression ]
 
-program = [strictmode] [framework] *import [*include] block
-module = [strictmode] module *import [*include] block
-
-strictmode = "superstrict" / "strict" [ comment ] EOL
-framework = "framework" EOL
-import = "import" string "." string EOL
-include = "include" string EOL
-
-module = "module" string "." string
-moduleinfo = *( "moduleinfo" string )
-
-function = "function" string [ ":" vartype ["ptr"] ]
-           "(" params ")" block
-           "endfunction" / ("end" "function)
-method = "method" string [ ":" vartype ["ptr"] ]
-         "(" params ")" 
-         block
-         "endmethod" / ("end" "method")
-
-type = "type" string [ "extends" string ]
-       \*(field / const / global / "private" / "public" / method / function )
-       "endtype" / ("end" "type")
-
-vartype = "byte" / "int" / "string" / "double" / "float" / "size_t"
-
-comment = "'" *( WSP / string ) EOL
-remark = "rem" *( WSP / string / EOL ) "endrem" / ( "end" "rem")
-
-
-local = "local" vardecl *[ "," vardecl ]
-field = "field" vardecl *[ "," vardecl ]
-global = "global" vardecl *[ "," vardecl ]
-
-vardecl = string ":" vartype [ "=" expression ]
-
-; Define Tokens identified by Lexer
-; Status: Incomplete
+;   Define Tokens identified by Lexer
+;   Status: Incomplete and not implemented
 
 TOKENS = [ RESERVED ]
 RESERVED = ["superstrict"/"strict"/"framework"/"import"/"include"]
